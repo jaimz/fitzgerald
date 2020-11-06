@@ -1,0 +1,49 @@
+:root {
+    --container-padding: 20px;
+    --panel-padding: 8px; 
+}
+
+
+body {
+    padding: 0 var(--container-padding);
+    color: var(--vscode-foreground);
+    font-size: var(--vscode-font-size);
+    font-family: var(--vscode-font-family);
+    background-color: var(--vscode-editor-background);
+}
+
+#warningBanner {
+    color: var(--vscode-error-foreground);
+    border-bottom: 1px solid var(--vscode-error-foreground);
+    display: none;
+}
+
+#warningBanner.visible {
+    display: inherit;
+}
+
+.stat-panel {
+    display: flex;
+    flex-direction: row;
+    align-items: baseline;
+    border-style: solid;
+    border-width: 1px 1px 1px var(--panel-padding);
+    border-color: var(--vscode-panel-border);
+    border-radius: var(--panel-padding);
+    margin-bottom: var(--panel-padding);
+}
+
+.stat-panel.hidden {
+    display: none;
+}
+
+.stat-count {
+    flex: 0;
+    font-size: 4rem;
+    padding: var(--panel-padding) 0 var(--panel-padding) var(--panel-padding);
+}
+
+.stat-name {
+    flex: 1;
+    padding: var(--panel-padding);
+}
