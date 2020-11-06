@@ -1,0 +1,12 @@
+out
+node_modules
+.vscode-test/
+*.vsix
+.idea/.idea.fitzgerald.dir/riderModule.iml
+.idea/.idea.fitzgerald.dir/.idea/contentModel.xml
+.idea/.idea.fitzgerald.dir/.idea/encodings.xml
+.idea/.idea.fitzgerald.dir/.idea/indexLayout.xml
+.idea/.idea.fitzgerald.dir/.idea/modules.xml
+.idea/.idea.fitzgerald.dir/.idea/projectSettingsUpdater.xml
+.idea/.idea.fitzgerald.dir/.idea/vcs.xml
+.idea/.idea.fitzgerald.dir/.idea/workspace.xml
