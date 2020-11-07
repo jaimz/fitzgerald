@@ -4,12 +4,13 @@
   
   function start() {
     const vscode = acquireVsCodeApi();
-
-    const oldState = vscode.getState();
+    console.dir(vscode);
     
     let haveErrored = false;
+    let cleared = false;
     
     const warningBar = document.getElementById('warningBar');
+    const emptyState = document.getElementById('emptyState');    
     
     const refreshPanel = (statKey, stat) => {
       const countEl = document.querySelector(`.stat-count[data-stat-name=${statKey}]`);
@@ -25,6 +26,11 @@
       if (haveErrored) {
         warningBar.classList.remove('visible');
         haveErrored = false;
+      }
+      
+      if (cleared) {
+        if (emptyState) emptyState.classList.remove('visible');
+        cleared = false;
       }
       
       for (const [statKey, stat] of Object.entries(stats))
@@ -49,9 +55,13 @@
       console.error(errorMessage);
     }
     
+    const clear = () => {
+      hideAllStatPanels();
+      if (emptyState) emptyState.classList.add('visible');
+      cleared = true;
+    }
+    
     window.addEventListener('message', event => {
-      console.log("Got a message: ", event);
-      
       const message = event.data;
       const {
         command, 
@@ -64,6 +74,9 @@
           break;
         case 'error':
           showError(errorMessage);
+          break;
+        case 'clear':
+          clear();
           break;
         default:
           console.warn('unrecognized command: ', message.command);

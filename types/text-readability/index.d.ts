@@ -3,5 +3,13 @@ declare module 'text-readability' {
     export function lexiconCount(text : string, removePunctuation?: boolean): number;
     export function sentenceCount(text: string) : number;
     export function fleschReadingEase(text: string) : number;
-    export function textStandard(text: string, floatOutput:  boolean) : number;
+    export function fleschKincaidGrade(text: string) : number;
+    export function gunningFog(text: string) : number;
+    export function smogIndex(text: string) : number;
+    export function automatedReadabilityIndex(text: string) : number;
+    export function colemanLiauIndex(text: string) : number;
+    export function linsearWriteFormula(text: string) : number;
+    export function daleChallReadabilityScore(text: string) : number;
+    export function textStandard(text: string, floatOutput:  boolean) : number | string;
+    export function difficultWords(text: string) : any;
 }

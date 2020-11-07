@@ -22,6 +22,16 @@ body {
     display: inherit;
 }
 
+#emptyState {
+    color: var(--vscode-paneltitle-inactiveforeground);
+    font-size: 1.2rem;
+    display: none;
+}
+
+#emptyState.visible {
+    display: block;
+}
+
 .stat-panel {
     display: flex;
     flex-direction: row;
