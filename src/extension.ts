@@ -1,7 +1,14 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
-import {Selection, TextDocument, TextDocumentChangeEvent, TextEditorSelectionChangeEvent, ViewColumn} from 'vscode';
+import {
+	Position,
+	Selection,
+	TextDocument,
+	TextDocumentChangeEvent,
+	TextEditorSelectionChangeEvent,
+	ViewColumn
+} from 'vscode';
 import * as rs from 'text-readability';
 import { difficultWordsMap } from './words/words';
 
@@ -31,12 +38,20 @@ export function activate(context: vscode.ExtensionContext) {
 	// We have to remember the previous text selection so we can tell if an incoming
 	// selection change should cause us to re-calculate the stats
 	let _selections : Selection[] | null = null;
-	
+
 	const hardWordDecorationType = vscode.window.createTextEditorDecorationType({
 		overviewRulerColor: 'blue',
-		overviewRulerLane: vscode.OverviewRulerLane.Right,
-		backgroundColor: 'blue'
-	})
+		overviewRulerLane: vscode.OverviewRulerLane.Left,
+		dark: {
+			backgroundColor: '#6f4446',
+			overviewRulerColor: '#6f4446',
+		},
+		light: {
+			backgroundColor: '#FFC0C2',
+			overviewRulerColor: '#FFC0C2',
+		},
+		fontWeight: 'bold'
+	});
 
 	// Recalculate the stats if the text document changes - should probably be smarter about deltas
 	// in 'real life'
@@ -59,7 +74,7 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 
 		console.log("Got text editor");
-		
+
 		_selections = null;
 		update();
 	}));
@@ -81,25 +96,26 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	});
 
-	function updateHardWordsDecorations(hardWordsMap : Map<string, [number, number][]>, document : TextDocument, activeWords?: string[]) {
+	function updateHardWordsDecorations(hardWordsMap : Map<string, [number, number][]>, document : TextDocument, offset?: Position, activeWords?: string[]) {
 		const wordsToDecorate = activeWords || [...hardWordsMap.keys()];
-		
+
 		const decorations : vscode.DecorationOptions[] = [];
+
+		console.log("Got offset: ", offset);
 		for (const word of wordsToDecorate) {
 			let spans = hardWordsMap.get(word);
-			if (!spans) continue;
-			
+			if (!spans) { continue;};
+
 			for (const span of spans) {
-				console.log("Creating decoration from ", span[0], " to ", span[1]);
-				const startPos = document.positionAt(span[0]);
-				const endPos = document.positionAt(span[1]);
-				
-				console.log("Pushing decoration with positions ", startPos, ", ", endPos);
-				decorations.push({ range: new vscode.Range(startPos, endPos), hoverMessage: "Difficult word!"})
+				const startPos = offset ? offset.translate({ characterDelta: span[0] }) : document.positionAt(span[0]);
+				const endPos = offset ? offset.translate({ characterDelta: span[1] }) : document.positionAt(span[1]);
+				// const startPos = document.positionAt(offset + span[0]);
+				// const endPos = document.positionAt(offset + span[1]);
+
+				decorations.push({ range: new vscode.Range(startPos, endPos), hoverMessage: "Difficult word!"});
 			}
 		}
-		
-		console.log("Pushing ", decorations.length, " decorations");
+
 		vscode.window.activeTextEditor?.setDecorations(hardWordDecorationType, decorations);
 	}
 
@@ -122,9 +138,23 @@ export function activate(context: vscode.ExtensionContext) {
 		hardWords.sort();
 		// For reasons that escape me the difficult words are rendered in reverse order
 		hardWords.reverse();
-		
-		updateHardWordsDecorations(hardWordsMap, document);
-		
+
+		let offset;
+		if (textSelections && textSelections.length > 0 && selections) {
+			console.log("Making offset", textSelections, " ", selections);
+			offset = selections[0].start;
+			updateHardWordsDecorations(hardWordsMap, document, offset);
+		} else {
+			console.log("No selections - making an offset at 0");
+			offset = document.positionAt(0);
+			updateHardWordsDecorations(hardWordsMap, document);
+		}
+
+		console.log(offset);
+
+		// const offset = (textSelections && selections) ? selections[0].start : document.positionAt(0);
+
+
 		return {
 			automatedReadability: rs.automatedReadabilityIndex(text),
 			colemanLiau: rs.colemanLiauIndex(text),
@@ -155,7 +185,7 @@ export function activate(context: vscode.ExtensionContext) {
 	// The command has been defined in the package.json file
 	// Now provide the implementation of the command with registerCommand
 	// The commandId parameter must match the command field in package.json
-	let disposable = vscode.commands.registerCommand('fitzgerald.helloWorld', () => {
+	let disposable = vscode.commands.registerCommand('fitzgerald.fitz', () => {
 
 		if (vscode.window.activeTextEditor) {
 			update();
@@ -263,84 +293,93 @@ class StatsPanel {
 	<div id="warningBar"></div>
 	<div id="emptyState">Nothing to show..</div>
 
-	<div class="stat-panel">
-		<div class="stat">
-			<div class="stat-count" data-stat-name="flesch"></div>
-			<div class="stat-name">Flesch Reading Ease</div>
+	<section>
+		<div class="gauge-panel">
+		  <div id="ease-gauge">
+			<div class="gauge-label">Hard</div>
+			<div class="gauge-track">
+			  <div id="gaugePointer" class="gauge-pointer" style="left: 59%"></div>
+			  <div id="gaugeLabel" class="reading-ease" style="left: 59%">71.68</div>
+			</div>
+			<div class="gauge-label">Easy</div>
+		  </div>
 		</div>
-	</div>
+	</section>
 
-	<div class="stat-panel">
-		<div class="stat">
-			<div class="stat-count" data-stat-name="words"></div>
-			<div class="stat-name">Words</div>
-		</div>
-	</div>
-
-	<div class="stat-panel">
-		<div class="stat">
-			<div class="stat-count" data-stat-name="sentences"></div>
-			<div class="stat-name">Sentences</div>
-		</div>
-	</div>
-
-	<div class="stat-panel">
-		<div class="stat">
-			<div class="stat-count" data-stat-name="syllables"></div>
-			<div class="stat-name">Syllables</div>
-		</div>
-	</div>
-
-
-
+	<section>
 	<div class="discloser-panel">
+	<div class="stat-panel">
+	  <div class="stat">
+		<div class="grade" data-stat-name="grade">7<sup class="grade-sfx">th</sup></div>
+		<div class="stat-name">Grade</div>
+	  </div>
+	  <div id="grades-expansion" class="disclosable">
+		<div class="minor-grade">
+		  <div class="minor-grade-name">Flesch-Kincaid Grade Level</div>
+		  <div class="dotted-pad"></div>
+		  <div class="minor-grade-value" data-stat-name="fleschKincaid"></div>
+		</div>
+		<div class="minor-grade">
+		  <div class="minor-grade-name">The Fog Scale</div>
+		  <div class="dotted-pad"></div>
+		  <div class="minor-grade-value" data-stat-name="gunningFog"></div>
+		</div>
+		<div class="minor-grade">
+		  <div class="minor-grade-name">The Smog Index</div>
+		  <div class="dotted-pad"></div>
+		  <div class="minor-grade-value" data-stat-name="smog"></div>
+		</div>
+		<div class="minor-grade">
+		  <div class="minor-grade-name">Automated Readability Index</div>
+		  <div class="dotted-pad"></div>
+		  <div class="minor-grade-value" data-stat-name="automatedReadability"></div>
+		</div>
+		<div class="minor-grade">
+		  <div class="minor-grade-name">The Coleman-Liau Index</div>
+		  <div class="dotted-pad"></div>
+		  <div class="minor-grade-value" data-stat-name="colemanLiau"></div>
+		</div>
+		<div class="minor-grade">
+		  <div class="minor-grade-name">Linsear Write Formula</div>
+		  <div class="dotted-pad"></div>
+		  <div class="minor-grade-value" data-stat-name="linsearWrite"></div>
+		</div>
+		<div class="minor-grade">
+		  <div class="minor-grade-name">Dale-Chall Readability Score</div>
+		  <div class="dotted-pad"></div>
+		  <div class="minor-grade-value" data-stat-name="daleChall"></div>
+		</div>
+	  </div>
+	</div>
+		</div>
+	</section>
+
+	<section>
+		<div id="difficultWords" class="stat-panel">
+			<div class="panel-title">
+				Difficult words (<span id="difficultWordCount"></span>)
+				<div id="clear-difficult-words">clear</div>
+			</div>
+			<div class="difficult-word-list"></div>
+		</div>
+	</section>
+
+	<section>
 		<div class="stat-panel">
 			<div class="stat">
-				<div class="stat-count" data-stat-name="grade"></div>
-				<div class="stat-name">Grade</div>
-				<div class="discloser-triangle">&blacktriangleleft;</div>
+				<div class="stat-count" data-stat-name="words"></div>
+				<div class="stat-name">Words</div>
 			</div>
-			<div id="grades-expansion" class="disclosable">
-				<div class="panel-label" data-stat-name="friendlyGrade"></div>
-				<div class="stat">
-					<div class="stat-count" data-stat-name="fleschKincaid"></div>
-					<div class="stat-name">Flesch-Kincaid Grade Level</div>
-				</div>
-				<div class="stat">
-					<div class="stat-count" data-stat-name="gunningFog"></div>
-					<div class="stat-name">The Fog Scale</div>
-				</div>
-				<div class="stat">
-					<div class="stat-count" data-stat-name="smog"></div>
-					<div class="stat-name">The Smog Index</div>
-				</div>
-				<div class="stat">
-					<div class="stat-count" data-stat-name="automatedReadability"></div>
-					<div class="stat-name">Automated Readability Index</div>
-				</div>
-				<div class="stat">
-					<div class="stat-count" data-stat-name="colemanLiau"></div>
-					<div class="stat-name">The Coleman-Liau Index</div>
-				</div>
-				<div class="stat">
-					<div class="stat-count" data-stat-name="linsearWrite"></div>
-					<div class="stat-name">Linsear Write Formula</div>
-				</div>
-				<div class="stat">
-					<div class="stat-count" data-stat-name="daleChall"></div>
-					<div class="stat-name">Dale-Chall Readability Score</div>
-				</div>
+			<div class="stat">
+				<div class="stat-count" data-stat-name="sentences"></div>
+				<div class="stat-name">Sentences</div>
+			</div>
+			<div class="stat">
+				<div class="stat-count" data-stat-name="syllables"></div>
+				<div class="stat-name">Syllables</div>
 			</div>
 		</div>
-	</div>
-
-	<div id="difficultWords" class="stat-panel">
-		<div class="panel-title">
-			Difficult words (<span id="difficultWordCount"></span>)
-			<div id="clear-difficult-words">clear</div>
-		</div>
-		<div class="difficult-word-list"></div>
-	</div>
+	</section>
 
 	<script nonce="${nonce}" src="${scriptUri}"></script>
 </body>

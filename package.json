@@ -10,14 +10,14 @@
 		"Other"
 	],
 	"activationEvents": [
-		"onCommand:fitzgerald.helloWorld"
+		"onCommand:fitzgerald.fitz"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
 		"commands": [
 			{
-				"command": "fitzgerald.helloWorld",
-				"title": "Hello World"
+				"command": "fitzgerald.fitz",
+				"title": "Fitz"
 			}
 		]
 	},
