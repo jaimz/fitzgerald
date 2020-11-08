@@ -43,6 +43,8 @@
 		"vscode-test": "^1.4.0"
 	},
 	"dependencies": {
+		"@types/pluralize": "0.0.29",
+		"pluralize": "^8.0.0",
 		"text-readability": "^1.0.5"
 	}
 }

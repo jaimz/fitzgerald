@@ -10,15 +10,71 @@
     let cleared = false;
     
     const warningBar = document.getElementById('warningBar');
-    const emptyState = document.getElementById('emptyState');    
+    const emptyState = document.getElementById('emptyState');
+    const difficultWordsPanel = document.getElementById('difficultWords');
+    const difficultWordCount = document.getElementById('difficultWordCount');
     
     const refreshPanel = (statKey, stat) => {
-      const countEl = document.querySelector(`.stat-count[data-stat-name=${statKey}]`);
+      const countEl = document.querySelector(`[data-stat-name=${statKey}]`);
       if (countEl) {
         countEl.innerText = `${stat}`;
         countEl.parentElement.classList.remove('hidden');
       } else {
         console.warn("Could not find view for stat ", statKey);
+      }
+    }
+    
+    const clickedDifficultWord = (e) => {
+      const wordEl = e.currentTarget;
+      const word = wordEl.dataset['word'];
+      if (word) {
+        console.log('Clicked difficult word: ', word);
+      }
+    }
+    
+    const refreshDifficultWords = (words) => {
+      if (!difficultWordsPanel)
+        return;
+      
+      const currentList = difficultWordsPanel.querySelector('.difficult-word-list');
+      const currentCells = currentList.querySelectorAll('.difficult-word');
+      for (const cell of currentCells) {
+        cell.removeEventListener('click', clickedDifficultWord);
+      }
+      if (currentList) currentList.remove();
+      
+      const newList = document.createElement("div")
+      newList.classList.add("difficult-word-list");
+      const wordDivs = words.map((word) => {
+        let el = document.createElement("div");
+        el.classList.add('difficult-word');
+        el.dataset['word'] = word;
+        
+        let selectedMarkerEl = document.createElement('span');
+        selectedMarkerEl.innerText = '•';
+        selectedMarkerEl.classList.add('selected-marker');
+        
+        let wordEl = document.createElement('span');
+        wordEl.innerText = word;
+        wordEl.classList.add('word');
+        
+        el.insertAdjacentElement('beforeend', selectedMarkerEl);
+        el.insertAdjacentElement('beforeend', wordEl);
+        
+        el.addEventListener('click', clickedDifficultWord);
+        
+        return el;
+      })
+      
+      for (const d of wordDivs) {
+        newList.insertAdjacentElement('afterbegin', d);        
+      }
+      
+      // Note in real life we would be more worried about performance throughout 
+      // this method.
+      difficultWordsPanel.insertAdjacentElement('beforeend', newList);
+      if (difficultWordCount) {
+        difficultWordCount.innerText = `${words.length}`;
       }
     }
     
@@ -35,6 +91,9 @@
       
       for (const [statKey, stat] of Object.entries(stats))
         refreshPanel(statKey, stat);
+      
+      const { difficultWords = [] } = stats;
+      refreshDifficultWords(difficultWords);
     }
 
     const hideAllStatPanels = () => {

@@ -11,5 +11,5 @@ declare module 'text-readability' {
     export function linsearWriteFormula(text: string) : number;
     export function daleChallReadabilityScore(text: string) : number;
     export function textStandard(text: string, floatOutput:  boolean) : number | string;
-    export function difficultWords(text: string) : any;
+    export function difficultWords(text: string) : number;
 }

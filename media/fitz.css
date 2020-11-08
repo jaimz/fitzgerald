@@ -4,6 +4,7 @@
 }
 
 
+/*noinspection CssUnresolvedCustomProperty*/
 body {
     padding: 0 var(--container-padding);
     color: var(--vscode-foreground);
@@ -30,12 +31,9 @@ body {
 
 #emptyState.visible {
     display: block;
-}
+}   
 
 .stat-panel {
-    display: flex;
-    flex-direction: row;
-    align-items: baseline;
     border-style: solid;
     border-width: 1px 1px 1px var(--panel-padding);
     border-color: var(--vscode-panel-border);
@@ -47,13 +45,92 @@ body {
     display: none;
 }
 
+.stat {
+    display: flex;
+    flex-direction: row;
+    align-items: baseline;
+}
+
 .stat-count {
     flex: 0;
     font-size: 4rem;
     padding: var(--panel-padding) 0 var(--panel-padding) var(--panel-padding);
 }
 
+.disclosable .stat {
+    flex-direction: row-reverse;
+    margin-left: calc(var(--panel-padding) * 2);
+    margin-right: var(--panel-padding);
+}
+.disclosable .stat-count {
+    font-size: 2rem;
+}
+
 .stat-name {
     flex: 1;
     padding: var(--panel-padding);
+}
+
+.discloser-triangle {
+    font-size: 2rem;
+    margin-right: var(--panel-padding);
+    transition: transform 1s ease-out;
+}
+
+.disclosable.open .discloser-triangle {
+    transform: rotate(90deg);
+}
+
+#grades-expansion {
+    display: none;
+}
+.disclosable.open #grades-expansion {
+    display: block;
+}
+
+
+.panel-title {
+    font-size: 1.4rem;
+    border-bottom: 1px solid var(--vscode-panel-border);
+    padding: var(--panel-padding);
+    margin-bottom: 8px;
+}
+
+#clear-difficult-words {
+    float: right;
+    font-size: 1rem;
+    line-height: 1.9rem;
+}
+
+.difficult-word {
+    padding: 8px;
+    position: relative;
+}
+
+.difficult-word:hover {
+    cursor: pointer;
+}
+
+.difficult-word.selected {
+    font-weight: bold;
+}
+
+.difficult-word:hover .word {
+    text-decoration: underline;
+}
+
+.difficult-word .selected-marker {
+    line-height: 0;
+    font-size: 1.5rem;
+    position: relative;
+    top: 5px;
+    display: none;
+}
+
+.difficult-word.selected .selected-marker {
+    display: inline;
+}
+
+.difficult-word:hover .selected-marker {
+    text-decoration: none;
 }

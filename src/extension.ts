@@ -1,18 +1,19 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
-import {Selection, TextDocumentChangeEvent, TextEditorSelectionChangeEvent, ViewColumn} from 'vscode';
+import {Selection, TextDocument, TextDocumentChangeEvent, TextEditorSelectionChangeEvent, ViewColumn} from 'vscode';
 import * as rs from 'text-readability';
+import { difficultWordsMap } from './words/words';
 
 
 interface Stats {
 	syllables : number,
 	words: number,
 	sentences : number,
-	
+
 	grade : number | string,
 	friendlyGrade: number | string,
-	
+
 	flesch: number,
 	fleschKincaid: number,
 	gunningFog: number,
@@ -21,15 +22,22 @@ interface Stats {
 	colemanLiau: number,
 	linsearWrite: number,
 	daleChall: number,
+
+	difficultWords: string[]
 }
 
-// this method is called when your extension is activated
-// your extension is activated the very first time the command is executed
+// noinspection JSUnusedGlobalSymbols
 export function activate(context: vscode.ExtensionContext) {
 	// We have to remember the previous text selection so we can tell if an incoming
 	// selection change should cause us to re-calculate the stats
-	let _selections : Selection[] | null = null
+	let _selections : Selection[] | null = null;
 	
+	const hardWordDecorationType = vscode.window.createTextEditorDecorationType({
+		overviewRulerColor: 'blue',
+		overviewRulerLane: vscode.OverviewRulerLane.Right,
+		backgroundColor: 'blue'
+	})
+
 	// Recalculate the stats if the text document changes - should probably be smarter about deltas
 	// in 'real life'
 	vscode.workspace.onDidChangeTextDocument((e: TextDocumentChangeEvent) => {
@@ -39,19 +47,22 @@ export function activate(context: vscode.ExtensionContext) {
 			_selections = null;
 			update();
 		}
-	})
-	
+	});
+
 	// Update the stats when the user changes the current editor
 	vscode.window.onDidChangeActiveTextEditor((e => {
 		if (!e) {
+			console.log("No text editor?");
 			// If we don't have an active text editor clear the stats
-			StatsPanel.clearDisplay();
+			// StatsPanel.clearDisplay();
 			return;
 		}
+
+		console.log("Got text editor");
 		
 		_selections = null;
 		update();
-	}))
+	}));
 
 	// Update the stats to change the selection when the user updates it
 	vscode.window.onDidChangeTextEditorSelection((e: TextEditorSelectionChangeEvent) => {
@@ -59,34 +70,60 @@ export function activate(context: vscode.ExtensionContext) {
 			// This event also gets fired if the user simply moves the caret. Only do anything if we have non-empty selections
 			const nonEmptySelections = e.selections?.filter((selection) => !selection.isEmpty) || [];
 			const incomingSelections = nonEmptySelections.length > 0 ? nonEmptySelections : null;
-			
+
 			// Only do an update if a selection has meaningfully changed.
 			if (incomingSelections !== _selections) {
 				console.log("Changed selection");
 
 				_selections = incomingSelections;
-				update();				
+				update();
 			}
 		}
-	})
+	});
 
+	function updateHardWordsDecorations(hardWordsMap : Map<string, [number, number][]>, document : TextDocument, activeWords?: string[]) {
+		const wordsToDecorate = activeWords || [...hardWordsMap.keys()];
+		
+		const decorations : vscode.DecorationOptions[] = [];
+		for (const word of wordsToDecorate) {
+			let spans = hardWordsMap.get(word);
+			if (!spans) continue;
+			
+			for (const span of spans) {
+				console.log("Creating decoration from ", span[0], " to ", span[1]);
+				const startPos = document.positionAt(span[0]);
+				const endPos = document.positionAt(span[1]);
+				
+				console.log("Pushing decoration with positions ", startPos, ", ", endPos);
+				decorations.push({ range: new vscode.Range(startPos, endPos), hoverMessage: "Difficult word!"})
+			}
+		}
+		
+		console.log("Pushing ", decorations.length, " decorations");
+		vscode.window.activeTextEditor?.setDecorations(hardWordDecorationType, decorations);
+	}
 
 	function reCalcStats() : Stats | undefined {
 		const document = vscode.window.activeTextEditor?.document;
 		const selections = vscode.window.activeTextEditor?.selections;
-		
-		
-		if (!document)
-			return;
+
+
+		if (!document) { return; }
 
 		// Confusingly, VSC seems to take the current insertion point as a "selection" so filter out any empty ones.
 		const textSelections = selections ? selections.filter((selection : Selection) => !selection.isEmpty) : null;
 
 		// The text to analyse is the union of all the selected text (or the whole document if there are no selections)
-		const text = textSelections && textSelections.length > 0 ? textSelections.map((selection : Selection) => document.getText(selection)).join(" ") : document.getText();		
+		const text = textSelections && textSelections.length > 0 ? textSelections.map((selection : Selection) => document.getText(selection)).join(" ") : document.getText();
+
+		// const difficultWordSet = difficultWords(text, 3);
+		const hardWordsMap = difficultWordsMap(text, 3);
+		const hardWords = [...hardWordsMap.keys()];
+		hardWords.sort();
+		// For reasons that escape me the difficult words are rendered in reverse order
+		hardWords.reverse();
 		
-		console.log("Difficult words");
-		console.log(rs.difficultWords(text));
+		updateHardWordsDecorations(hardWordsMap, document);
 		
 		return {
 			automatedReadability: rs.automatedReadabilityIndex(text),
@@ -102,22 +139,24 @@ export function activate(context: vscode.ExtensionContext) {
 			words: rs.lexiconCount(text, true),
 			sentences: rs.sentenceCount(text),
 			grade: rs.textStandard(text, true),
-			friendlyGrade: rs.textStandard(text, false)
-		}
+			friendlyGrade: rs.textStandard(text, false),
+
+			difficultWords: hardWords
+		};
 	}
-	
-	
+
+
 	function update() {
 		const stats = reCalcStats();
 		StatsPanel.updateWithStats(stats, context.extensionUri);
 	}
-	
-	
+
+
 	// The command has been defined in the package.json file
 	// Now provide the implementation of the command with registerCommand
 	// The commandId parameter must match the command field in package.json
 	let disposable = vscode.commands.registerCommand('fitzgerald.helloWorld', () => {
-		
+
 		if (vscode.window.activeTextEditor) {
 			update();
 		} else {
@@ -139,15 +178,14 @@ class StatsPanel {
 
 	private readonly _panel: vscode.WebviewPanel;
 	private readonly _extensionUri : vscode.Uri;
-	private _disposables: vscode.Disposable[] = [];
 
 	public static updateWithStats(stats? : Stats, extensionUri? : vscode.Uri) {
 		const column = vscode.ViewColumn.Two;
-		
+
 		// We only want to reveal the stats panel if it is the first time it is created
 		// (otherwise it yanks the user's focus away from the editor window.
 		let shouldReveal = !StatsPanel.current;
-		
+
 		// If this is the first time we've been called create the webview
 		if (!StatsPanel.current) {
 			if (extensionUri) {
@@ -171,18 +209,17 @@ class StatsPanel {
 		}
 
 		StatsPanel.current.update(stats);
-		
-		if (shouldReveal)
-			StatsPanel.current.reveal(column);
+
+		if (shouldReveal) { StatsPanel.current.reveal(column); }
 	}
-	
+
 	// Called when there is no active text editor (and therefore no stats to sensibly display.
 	public static clearDisplay() {
 		if (!StatsPanel.current) {
 			// nothing to do.
 			return;
 		}
-		
+
 		StatsPanel.current.clear();
 	}
 
@@ -210,48 +247,115 @@ class StatsPanel {
 		const fitzStylesPath = vscode.Uri.joinPath(this._extensionUri, 'media', 'fitz.css');
 		const resetStylesUri = webview.asWebviewUri(resetStylesPath);
 		const fitzStylesUri = webview.asWebviewUri(fitzStylesPath);
-		
+
 		this._panel.webview.html = `<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; img-src ${webview.cspSource} https:; script-src 'nonce-${nonce}';">
-  <link href="${resetStylesUri}" rel="stylesheet">
-  <link href="${fitzStylesUri}" rel="stylesheet">
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; img-src ${webview.cspSource} https:; script-src 'nonce-${nonce}';">
+	<link href="${resetStylesUri}" rel="stylesheet">
+	<link href="${fitzStylesUri}" rel="stylesheet">
 
-  <title>Fitzgerald</title>
+	<title>Fitzgerald</title>
 </head>
 <body>
-  <div id="warningBar"></div>
-  <div id="emptyState">Nothing to show..</div>
-  <div class="stat-panel">
-    <div class="stat-count" data-stat-name="syllables"></div>
-    <div class="stat-name">Syllables</div>
-  </div>
-  <div class="stat-panel">
-    <div class="stat-count" data-stat-name="sentences"></div>
-    <div class="stat-name">Sentences</div>
-  </div>
-  <div class="stat-panel">
-    <div class="stat-count" data-stat-name="grade"></div>
-    <div class="stat-name">Grade</div>
-  </div>
+	<div id="warningBar"></div>
+	<div id="emptyState">Nothing to show..</div>
 
-  <script nonce="${nonce}" src="${scriptUri}"></script>
+	<div class="stat-panel">
+		<div class="stat">
+			<div class="stat-count" data-stat-name="flesch"></div>
+			<div class="stat-name">Flesch Reading Ease</div>
+		</div>
+	</div>
+
+	<div class="stat-panel">
+		<div class="stat">
+			<div class="stat-count" data-stat-name="words"></div>
+			<div class="stat-name">Words</div>
+		</div>
+	</div>
+
+	<div class="stat-panel">
+		<div class="stat">
+			<div class="stat-count" data-stat-name="sentences"></div>
+			<div class="stat-name">Sentences</div>
+		</div>
+	</div>
+
+	<div class="stat-panel">
+		<div class="stat">
+			<div class="stat-count" data-stat-name="syllables"></div>
+			<div class="stat-name">Syllables</div>
+		</div>
+	</div>
+
+
+
+	<div class="discloser-panel">
+		<div class="stat-panel">
+			<div class="stat">
+				<div class="stat-count" data-stat-name="grade"></div>
+				<div class="stat-name">Grade</div>
+				<div class="discloser-triangle">&blacktriangleleft;</div>
+			</div>
+			<div id="grades-expansion" class="disclosable">
+				<div class="panel-label" data-stat-name="friendlyGrade"></div>
+				<div class="stat">
+					<div class="stat-count" data-stat-name="fleschKincaid"></div>
+					<div class="stat-name">Flesch-Kincaid Grade Level</div>
+				</div>
+				<div class="stat">
+					<div class="stat-count" data-stat-name="gunningFog"></div>
+					<div class="stat-name">The Fog Scale</div>
+				</div>
+				<div class="stat">
+					<div class="stat-count" data-stat-name="smog"></div>
+					<div class="stat-name">The Smog Index</div>
+				</div>
+				<div class="stat">
+					<div class="stat-count" data-stat-name="automatedReadability"></div>
+					<div class="stat-name">Automated Readability Index</div>
+				</div>
+				<div class="stat">
+					<div class="stat-count" data-stat-name="colemanLiau"></div>
+					<div class="stat-name">The Coleman-Liau Index</div>
+				</div>
+				<div class="stat">
+					<div class="stat-count" data-stat-name="linsearWrite"></div>
+					<div class="stat-name">Linsear Write Formula</div>
+				</div>
+				<div class="stat">
+					<div class="stat-count" data-stat-name="daleChall"></div>
+					<div class="stat-name">Dale-Chall Readability Score</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div id="difficultWords" class="stat-panel">
+		<div class="panel-title">
+			Difficult words (<span id="difficultWordCount"></span>)
+			<div id="clear-difficult-words">clear</div>
+		</div>
+		<div class="difficult-word-list"></div>
+	</div>
+
+	<script nonce="${nonce}" src="${scriptUri}"></script>
 </body>
 </html>`;
 	}
-	
+
 	private update(stats?: Stats) {
 		if (!stats) {
 			this._panel.webview.postMessage({ command: 'error', message: "Could not calculate statistics"});
 			return;
 		}
-		
+
 		this._panel.webview.postMessage({ command: 'refresh', stats });
 	}
-	
+
 	private clear() {
 		this._panel.webview.postMessage({command: "clear"});
 	}
@@ -266,5 +370,5 @@ function getNonce() {
 	return text;
 }
 
-// this method is called when your extension is deactivated
+// noinspection JSUnusedGlobalSymbols
 export function deactivate() {}
