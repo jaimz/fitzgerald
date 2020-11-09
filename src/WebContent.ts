@@ -67,7 +67,7 @@ export function initialiseWebviewContent(webview : vscode.Webview, extensionUri 
 	<div class="discloser-panel">
 	<div class="stat-panel">
 	  <div class="stat">
-		<div class="grade"><span class="grade-number">7</span><sup class="grade-sfx">th</sup></div>
+		<div class="grade"><span class="grade-number"></span><sup class="grade-sfx">th</sup></div>
 		<div class="stat-name">Grade</div>
 	  </div>
 	  <div id="grades-expansion" class="disclosable">
@@ -115,7 +115,6 @@ export function initialiseWebviewContent(webview : vscode.Webview, extensionUri 
 		<div id="difficultWords" class="stat-panel">
 			<div class="panel-title">
 				Difficult words (<span id="difficultWordCount"></span>)
-				<div id="clear-difficult-words">clear</div>
 			</div>
 			<div class="difficult-word-list"></div>
 		</div>
