@@ -1,5 +1,3 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 import {
 	Position,
@@ -9,10 +7,13 @@ import {
 	TextEditorSelectionChangeEvent,
 	ViewColumn
 } from 'vscode';
+
 import * as rs from 'text-readability';
 import { difficultWordsMap } from './words/words';
 
 
+// Encapsulates the statistics to show for the current
+// text editor
 interface Stats {
 	syllables : number,
 	words: number,
@@ -33,26 +34,35 @@ interface Stats {
 	difficultWords: string[]
 }
 
+// The decoration used to highlight "difficult" words in the text.
+const hardWordDecorationType = vscode.window.createTextEditorDecorationType({
+	overviewRulerColor: 'blue',
+	overviewRulerLane: vscode.OverviewRulerLane.Left,
+	dark: {
+		backgroundColor: '#6f4446',
+		overviewRulerColor: '#6f4446',
+	},
+	light: {
+		backgroundColor: '#FFC0C2',
+		overviewRulerColor: '#FFC0C2',
+	},
+	fontWeight: 'bold'
+});
+
+
+
+/**
+ * Activate the extension
+ * @param context Represents the VSC instance to activate within.
+ */
 // noinspection JSUnusedGlobalSymbols
 export function activate(context: vscode.ExtensionContext) {
+	
 	// We have to remember the previous text selection so we can tell if an incoming
 	// selection change should cause us to re-calculate the stats
 	let _selections : Selection[] | null = null;
-
-	const hardWordDecorationType = vscode.window.createTextEditorDecorationType({
-		overviewRulerColor: 'blue',
-		overviewRulerLane: vscode.OverviewRulerLane.Left,
-		dark: {
-			backgroundColor: '#6f4446',
-			overviewRulerColor: '#6f4446',
-		},
-		light: {
-			backgroundColor: '#FFC0C2',
-			overviewRulerColor: '#FFC0C2',
-		},
-		fontWeight: 'bold'
-	});
-
+	
+	
 	// Recalculate the stats if the text document changes - should probably be smarter about deltas
 	// in 'real life'
 	vscode.workspace.onDidChangeTextDocument((e: TextDocumentChangeEvent) => {
@@ -96,21 +106,27 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	});
 
-	function updateHardWordsDecorations(hardWordsMap : Map<string, [number, number][]>, document : TextDocument, offset?: Position, activeWords?: string[]) {
-		const wordsToDecorate = activeWords || [...hardWordsMap.keys()];
+	
+	/**
+	 * Re-generate the difficult word decorations whenever the text or selection changes.
+	 * 
+	 * @param hardWordsMap a map of word -> word locations. Locations are supplied as an array of spans (0-based start and end positions)
+	 * @param document The current text document.
+	 * @param offset Offset of the current selection (if there is one). Decorations should be relative to this if it is supplied.
+	 */
+	function updateHardWordsDecorations(hardWordsMap : Map<string, [number, number][]>, document : TextDocument, offset?: Position) {
+		const wordsToDecorate = [...hardWordsMap.keys()];
 
 		const decorations : vscode.DecorationOptions[] = [];
 
-		console.log("Got offset: ", offset);
+		// We would have to be smarter about the range of text over which we operate in long documents
 		for (const word of wordsToDecorate) {
 			let spans = hardWordsMap.get(word);
-			if (!spans) { continue;};
-
+			if (!spans) { continue;}
+			
 			for (const span of spans) {
 				const startPos = offset ? offset.translate({ characterDelta: span[0] }) : document.positionAt(span[0]);
 				const endPos = offset ? offset.translate({ characterDelta: span[1] }) : document.positionAt(span[1]);
-				// const startPos = document.positionAt(offset + span[0]);
-				// const endPos = document.positionAt(offset + span[1]);
 
 				decorations.push({ range: new vscode.Range(startPos, endPos), hoverMessage: "Difficult word!"});
 			}
@@ -118,11 +134,16 @@ export function activate(context: vscode.ExtensionContext) {
 
 		vscode.window.activeTextEditor?.setDecorations(hardWordDecorationType, decorations);
 	}
+	
 
+	/**
+	 * Recalculate the statistics for the current text document.
+	 * 
+	 * @return A Stats object, or undefined if there is no current document.
+	 */
 	function reCalcStats() : Stats | undefined {
 		const document = vscode.window.activeTextEditor?.document;
 		const selections = vscode.window.activeTextEditor?.selections;
-
 
 		if (!document) { return; }
 
@@ -136,23 +157,17 @@ export function activate(context: vscode.ExtensionContext) {
 		const hardWordsMap = difficultWordsMap(text, 3);
 		const hardWords = [...hardWordsMap.keys()];
 		hardWords.sort();
-		// For reasons that escape me the difficult words are rendered in reverse order
+		// For reasons that escape me the difficult words are rendered in reverse order unless we do this
 		hardWords.reverse();
-
-		let offset;
+		
+		// If we have a selection the difficult words decorations should be rendered relative to
+		// that selection
 		if (textSelections && textSelections.length > 0 && selections) {
-			console.log("Making offset", textSelections, " ", selections);
-			offset = selections[0].start;
+			const offset = selections[0].start;
 			updateHardWordsDecorations(hardWordsMap, document, offset);
 		} else {
-			console.log("No selections - making an offset at 0");
-			offset = document.positionAt(0);
 			updateHardWordsDecorations(hardWordsMap, document);
 		}
-
-		console.log(offset);
-
-		// const offset = (textSelections && selections) ? selections[0].start : document.positionAt(0);
 
 
 		return {
@@ -176,15 +191,15 @@ export function activate(context: vscode.ExtensionContext) {
 	}
 
 
+	/**
+	 * Update the stats panel and difficult words highlights
+	 */
 	function update() {
 		const stats = reCalcStats();
 		StatsPanel.updateWithStats(stats, context.extensionUri);
 	}
+	
 
-
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
 	let disposable = vscode.commands.registerCommand('fitzgerald.fitz', () => {
 
 		if (vscode.window.activeTextEditor) {
@@ -193,7 +208,6 @@ export function activate(context: vscode.ExtensionContext) {
 			vscode.window.showWarningMessage("No active editor found");
 		}
 	});
-
 	context.subscriptions.push(disposable);
 }
 
@@ -209,14 +223,22 @@ class StatsPanel {
 	private readonly _panel: vscode.WebviewPanel;
 	private readonly _extensionUri : vscode.Uri;
 
+	/**
+	 * Display the supplied stats in the web view. If there is no current view
+	 * this method will create one, otherwise we update the view that exists.
+	 * 
+	 * @param stats The statistics to show.
+	 * @param extensionUri The uri of the extension. Required so we can look up relative URIs for web content.
+	 */
 	public static updateWithStats(stats? : Stats, extensionUri? : vscode.Uri) {
+		// We attempt to show the web view as a "side" panel using column two of the editor
 		const column = vscode.ViewColumn.Two;
 
 		// We only want to reveal the stats panel if it is the first time it is created
 		// (otherwise it yanks the user's focus away from the editor window.
 		let shouldReveal = !StatsPanel.current;
 
-		// If this is the first time we've been called create the webview
+		// Create the webview if this is the first time we've been called...
 		if (!StatsPanel.current) {
 			if (extensionUri) {
 				const panel = vscode.window.createWebviewPanel(
@@ -261,12 +283,12 @@ class StatsPanel {
 		this.initialiseContent();
 	}
 
-
+	// Bring the existing webview into focus
 	private reveal(column: ViewColumn) {
 		this._panel.reveal(column);
 	}
 
-
+	// Initialise the content to show in the webview. We don't display any stats until "update" is called.
 	private initialiseContent() {
 		const webview = this._panel.webview;
 
@@ -386,6 +408,7 @@ class StatsPanel {
 </html>`;
 	}
 
+	// Display the given stats
 	private update(stats?: Stats) {
 		if (!stats) {
 			this._panel.webview.postMessage({ command: 'error', message: "Could not calculate statistics"});
@@ -395,11 +418,14 @@ class StatsPanel {
 		this._panel.webview.postMessage({ command: 'refresh', stats });
 	}
 
+	// Clear the panel - called when, for some reason, there is no active editor (and
+	// therefore no sensible stats to show)
 	private clear() {
 		this._panel.webview.postMessage({command: "clear"});
 	}
 }
 
+// Generate the security nonce for the embedded webview.
 function getNonce() {
 	let text = '';
 	const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
