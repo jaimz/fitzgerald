@@ -46,6 +46,7 @@
       }
     };
 
+    // Refresh the major grade number displayed
     const refreshGradeNumber = (grade) => {
       const gradeEl = document.querySelector('.grade-number');
       const gradeSfxEl = document.querySelector('.grade-sfx');

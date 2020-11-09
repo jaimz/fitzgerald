@@ -1,8 +1,6 @@
-import { Range } from 'vscode';
 import { syllableCount } from "text-readability";
 import pluralize = require('pluralize');
 import easyWords from "./easy_words";
-import {plural} from "pluralize";
 
 
 // from the original text-readability code
@@ -28,30 +26,15 @@ function presentTense(word : string) {
     return word
 }
 
-// text-readability only returns the *number* of difficult words, not the
-// actual set. So I have to duplicate its function here
-export function difficultWords(text: string, syllableThreshold : number = 2) : Set<string> {
-    const textList = text.match(/[\w=‘’]+/g);
-    const diffWordSet = new Set<string>();
-    
-    if (textList === null)
-        return diffWordSet;
-    
-    for (const word of textList) {
-        const normalized = presentTense(pluralize(word.toLocaleLowerCase(), 1));
-        if (!easyWords.has(normalized) && syllableCount(word) >= syllableThreshold) {
-            diffWordSet.add(word);
-        }
-    }
-    
-    return diffWordSet
-}
 
 function isHardWord(word : string, syllableThreshold : number = 3) : boolean {
     const normalized = presentTense(pluralize(word.toLocaleLowerCase(), 1));
     return (!easyWords.has(normalized) && syllableCount(word) >= syllableThreshold);
 }
 
+
+// text-readability only returns the *number* of difficult words, not the
+// actual set. So I have to duplicate its function here
 export function difficultWordsMap(text: string, syllableThreshold: number = 3) : Map<string, [number,number][]> {
     const regex = /[\w=‘’]+/g;
     const resultSet = new Map<string, [number,number][]>();
