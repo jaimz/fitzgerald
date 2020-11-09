@@ -1,15 +1,20 @@
-// This code runs within the stats webview itself.
-// We communicate with vs code proper via web-worker message passing
+// This code runs within the stats webview itself and manages the display of incoming
+// statistics.
+// We communicate with vs code proper via web-worker message passing.
 (function () {
 
+  // Called when we know the DOM is ready (i.e. the extension has passed some initial content)
   function start() {
     // noinspection JSUnresolvedFunction
     const vscode = acquireVsCodeApi();
-    console.dir(vscode);
 
+    // True if the last update from the extension was an error message
     let haveErrored = false;
+
+    // True if the last update from the extension was a "clear" message
     let cleared = false;
 
+    // Look up various bits of UI
     const warningBar = document.getElementById('warningBar');
     const emptyState = document.getElementById('emptyState');
     const difficultWordsPanel = document.getElementById('difficultWords');
@@ -17,8 +22,10 @@
     const gaugePointer = document.getElementById('gaugePointer');
     const gaugeLabel = document.getElementById('gaugeLabel');
 
+    // The maximum a reading ease score can be. Heaven knows how they get to this number.
     const MAX_READING_EASE = 121.22;
 
+    // Refresh a particular statistics panel
     const refreshPanel = (statKey, stat) => {
       const countEl = document.querySelector(`[data-stat-name=${statKey}]`);
       if (countEl) {
@@ -29,14 +36,7 @@
       }
     };
 
-    const clickedDifficultWord = (e) => {
-      const wordEl = e.currentTarget;
-      const word = wordEl.dataset['word'];
-      if (word) {
-        console.log('Clicked difficult word: ', word);
-      }
-    };
-
+    // Update the reading ease gauge.
     const refreshGauge = (readingEase) => {
       const readingEasePc = (readingEase / MAX_READING_EASE) * 100;
       if (gaugePointer) { gaugePointer.style.left = `${readingEasePc}%`; }
@@ -46,14 +46,43 @@
       }
     };
 
+    const refreshGradeNumber = (grade) => {
+      const gradeEl = document.querySelector('.grade-number');
+      const gradeSfxEl = document.querySelector('.grade-sfx');
+
+      // Fortunately we don't have to worry about "112nd" grade
+      let sfx = "th";
+      switch (grade) {
+        case 1:
+          sfx = "st";
+          break;
+        case 2:
+          sfx = "nd";
+          break;
+        case 3:
+          sfx = "rd";
+          break;
+      }
+
+      if (gradeEl) {
+        gradeEl.innerText = `${grade}`;
+      } else {
+        console.warn("No grade el?");
+      }
+      
+      if (gradeSfxEl) {
+        gradeSfxEl.innerText = sfx;        
+      } else {
+        console.warn("No grade sfx el?");
+      }
+      
+    };
+
+    // Update the list of difficult words.
     const refreshDifficultWords = (words) => {
       if (!difficultWordsPanel) { return; }
 
       const currentList = difficultWordsPanel.querySelector('.difficult-word-list');
-      const currentCells = currentList.querySelectorAll('.difficult-word');
-      for (const cell of currentCells) {
-        cell.removeEventListener('click', clickedDifficultWord);
-      }
       if (currentList) { currentList.remove(); }
 
       const newList = document.createElement("div");
@@ -74,8 +103,6 @@
         el.insertAdjacentElement('beforeend', selectedMarkerEl);
         el.insertAdjacentElement('beforeend', wordEl);
 
-        el.addEventListener('click', clickedDifficultWord);
-
         return el;
       });
 
@@ -91,6 +118,7 @@
       }
     };
 
+    // Refresh the display with some new statistics
     const refreshWithStats = (stats = {}) => {
       if (haveErrored) {
         warningBar.classList.remove('visible');
@@ -102,15 +130,19 @@
         cleared = false;
       }
 
-      for (const [statKey, stat] of Object.entries(stats)) {
+      // Flesch score, grade, and difficult words are treated differently from teh other stats
+      const { difficultWords = [], grade = 1, flesch = 0, ...rest } = stats;
+      for (const [statKey, stat] of Object.entries(rest)) {
         refreshPanel(statKey, stat);
       }
 
-      const { difficultWords = [], flesch = 0 } = stats;
+      refreshGradeNumber(grade);
       refreshGauge(flesch);
       refreshDifficultWords(difficultWords);
     };
 
+    // Hide all the stats panels (because the display has been cleared due to the user
+    // focusing an in-appropriate editor)
     const hideAllStatPanels = () => {
       const statPanels = document.querySelectorAll('.stat-panel');
       for (const panel of statPanels) {
@@ -118,6 +150,7 @@
       }
     };
 
+    // Show an error sent by the extension (usually something went wrong calculating the stats)
     const showError = (errorMessage = "Unknown error") => {
       if (warningBar) {
         hideAllStatPanels();
@@ -129,12 +162,14 @@
       console.error(errorMessage);
     };
 
+    // Clear the stats. (The user has probably not focused a text document)
     const clear = () => {
       hideAllStatPanels();
       if (emptyState) { emptyState.classList.add('visible'); }
       cleared = true;
     };
 
+    // Listen for messages incoming from the extension
     window.addEventListener('message', event => {
       const message = event.data;
       const {
@@ -160,5 +195,4 @@
   }
 
   window.addEventListener('DOMContentLoaded', start);
-
 }());

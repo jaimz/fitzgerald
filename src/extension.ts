@@ -332,7 +332,7 @@ class StatsPanel {
 	<div class="discloser-panel">
 	<div class="stat-panel">
 	  <div class="stat">
-		<div class="grade" data-stat-name="grade">7<sup class="grade-sfx">th</sup></div>
+		<div class="grade"><span class="grade-number">7</span><sup class="grade-sfx">th</sup></div>
 		<div class="stat-name">Grade</div>
 	  </div>
 	  <div id="grades-expansion" class="disclosable">
